@@ -82,7 +82,6 @@ blob-report/
 # Local screenshots and generated demo artifacts
 artifacts/
 screenshots/
-*.png
 *.jpg
 *.jpeg
 *.webp

@@ -27,6 +27,15 @@ O sistema não é uma implementação certificada de Open Insurance, não usa da
 
 ## Arquitetura
 
+A arquitetura AWS de referência está disponível em dois formatos:
+
+![Arquitetura AWS do OpenInsure](docs/architecture/architecture.png)
+
+- [Abrir o diagrama editável no draw.io](docs/architecture/architecture.drawio)
+- [Baixar a imagem em alta resolução](docs/architecture/architecture.png)
+
+O desenho representa uma arquitetura-alvo para um ambiente de grande escala, com VPC Multi-AZ, ECS/Fargate, Aurora PostgreSQL, ElastiCache, Amazon MSK, SQS/DLQ, observabilidade e adaptadores para instituições externas. Ele é um estudo de caso local e não representa uma conta AWS real ou uma integração produtiva.
+
 ```mermaid
 flowchart LR
     Client[Cliente HTTP / script de demonstração]
