@@ -1,0 +1,107 @@
+openapi: 3.0.3
+info:
+  title: OpenInsure Provider Catalog API
+  version: 1.0.0
+  description: Catálogo local de providers sintéticos. Não acessa instituições em produção.
+servers:
+  - url: http://localhost:8084
+paths:
+  /providers:
+    get:
+      summary: Lista providers sintéticos
+      responses:
+        '200':
+          description: Providers disponíveis
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProviderSummary'
+  /providers/{provider}:
+    get:
+      summary: Consulta o resumo operacional de um provider
+      parameters:
+        - $ref: '#/components/parameters/Provider'
+      responses:
+        '200':
+          description: Resumo do provider
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderSummary'
+        '404':
+          description: Provider inexistente
+  /providers/{provider}/policies:
+    get:
+      summary: Lista apólices sintéticas
+      parameters:
+        - $ref: '#/components/parameters/Provider'
+      responses:
+        '200':
+          description: Apólices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Policy'
+  /providers/{provider}/claims:
+    get:
+      summary: Lista sinistros sintéticos
+      parameters:
+        - $ref: '#/components/parameters/Provider'
+      responses:
+        '200':
+          description: Sinistros
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Claim'
+components:
+  parameters:
+    Provider:
+      name: provider
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [itau, bradesco-seguros, banco-do-brasil]
+  schemas:
+    ProviderSummary:
+      type: object
+      required: [provider, displayName, category, environment, dataClassification, capabilities, policyCount, claimCount, eventCount, health]
+      properties:
+        provider: { type: string }
+        displayName: { type: string }
+        category: { type: string }
+        environment: { type: string, example: prod-like-local }
+        dataClassification: { type: string, example: fictitious }
+        capabilities:
+          type: array
+          items: { type: string }
+        policyCount: { type: integer }
+        claimCount: { type: integer }
+        eventCount: { type: integer }
+        health: { type: string, example: UP }
+    Policy:
+      type: object
+      properties:
+        id: { type: string }
+        policyNumber: { type: string }
+        product: { type: string }
+        status: { type: string }
+        premium: { type: number, format: double }
+        ownerReference: { type: string }
+    Claim:
+      type: object
+      properties:
+        id: { type: string }
+        claimNumber: { type: string }
+        product: { type: string }
+        status: { type: string }
+        amount: { type: number, format: double }
+        reportedAt: { type: string, format: date-time }
+

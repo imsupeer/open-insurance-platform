@@ -1,0 +1,97 @@
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.zip
+.mvn/timing.properties
+
+# Maven wrapper cache (the wrapper scripts remain tracked)
+.mvn/wrapper/maven-wrapper.jar
+
+# Spring Boot
+spring-boot-devtools.properties
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+*.local
+*.secret
+*.secrets
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.jks
+*.keystore
+secrets/
+certificates/
+
+# IDEs and editors
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.project
+.classpath
+.settings/
+.factorypath
+.eclipse/
+.nb-gradle/
+.DS_Store
+Thumbs.db
+AGENTS.md
+
+# Logs and runtime files
+*.log
+logs/
+*.pid
+*.pid.lock
+*.seed
+hs_err_pid*
+replay_pid*
+
+# Docker and local infrastructure data
+docker-data/
+docker-volumes/
+.localstack/
+postgres-data/
+kafka-data/
+
+# Test and coverage reports
+surefire-reports/
+failsafe-reports/
+*.exec
+*.lcov
+coverage/
+jacoco/
+jacoco.exec
+
+# Playwright / browser automation output
+.playwright-mcp/
+playwright-report/
+test-results/
+blob-report/
+
+# Local screenshots and generated demo artifacts
+artifacts/
+screenshots/
+*.png
+*.jpg
+*.jpeg
+*.webp
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+*.orig
+

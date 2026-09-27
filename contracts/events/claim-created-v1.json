@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openinsure.local/contracts/events/claim-created-v1.json",
+  "title": "ClaimCreated v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eventId", "aggregateId", "occurredAt", "schemaVersion", "claimId", "policyId"],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid" },
+    "aggregateId": { "type": "string", "format": "uuid" },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "schemaVersion": { "const": 1 },
+    "claimId": { "type": "string", "format": "uuid" },
+    "policyId": { "type": "string", "format": "uuid" },
+    "correlationId": { "type": "string", "format": "uuid" }
+  }
+}

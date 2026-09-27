@@ -1,0 +1,140 @@
+openapi: 3.0.3
+info:
+  title: OpenInsure Consent API
+  version: 1.0.0
+  description: Consentimentos sintéticos protegidos por JWT OIDC. O subject lógico usa preferred_username quando presente.
+  license:
+    name: OpenInsure Lab synthetic license
+    url: https://openinsure.invalid/license
+servers:
+  - url: https://openinsure.invalid/consent
+security:
+  - oauth2: [consent:read]
+paths:
+  /consents:
+    post:
+      summary: Concede acesso a um recurso do titular
+      operationId: createConsent
+      security:
+        - oauth2: [consent:write]
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateConsentRequest' }
+      responses:
+        '201':
+          description: Consentimento criado
+          content: { application/json: { schema: { $ref: '#/components/schemas/Consent' } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /consents/{consentId}:
+    get:
+      summary: Consulta um consentimento
+      operationId: getConsent
+      parameters:
+        - $ref: '#/components/parameters/ConsentId'
+        - $ref: '#/components/parameters/PrincipalId'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Consentimento
+          content: { application/json: { schema: { $ref: '#/components/schemas/Consent' } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+  /consents/{consentId}/revoke:
+    post:
+      summary: Revoga um consentimento
+      operationId: revokeConsent
+      security:
+        - oauth2: [consent:write]
+      parameters:
+        - $ref: '#/components/parameters/ConsentId'
+        - $ref: '#/components/parameters/PrincipalId'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Consentimento revogado
+          content: { application/json: { schema: { $ref: '#/components/schemas/Consent' } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+  /internal/consents/{consentId}/decision:
+    get:
+      summary: Decide acesso para outro serviço do monorepo
+      operationId: decideConsent
+      security:
+        - oauth2: [consent:read]
+      parameters:
+        - $ref: '#/components/parameters/ConsentId'
+        - { name: principalId, in: query, required: true, schema: { type: string } }
+        - { name: resourceOwnerId, in: query, required: true, schema: { type: string } }
+        - { name: requiredScope, in: query, required: true, schema: { type: string } }
+        - { name: purpose, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Decisão positiva
+          content: { application/json: { schema: { $ref: '#/components/schemas/ConsentDecision' } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        password:
+          tokenUrl: http://localhost:8090/realms/openinsure/protocol/openid-connect/token
+          scopes:
+            consent:read: Consulta consentimentos
+            consent:write: Cria e revoga consentimentos
+            policy:read: Consulta apólices
+            claim:read: Consulta sinistros
+            claim:write: Abre sinistros
+  parameters:
+    PrincipalId: { name: X-Principal-Id, in: header, required: true, schema: { type: string } }
+    CorrelationId: { name: X-Correlation-Id, in: header, required: false, schema: { type: string, format: uuid } }
+    ConsentId: { name: consentId, in: path, required: true, schema: { type: string, format: uuid } }
+  schemas:
+    CreateConsentRequest:
+      type: object
+      required: [resourceOwnerId, purpose, scopes, expiresAt]
+      properties:
+        resourceOwnerId: { type: string, example: customer-001 }
+        purpose: { type: string, example: claim-assessment }
+        scopes: { type: array, minItems: 1, items: { type: string }, example: [policy:read, claim:write] }
+        expiresAt: { type: string, format: date-time }
+    Consent:
+      allOf:
+        - $ref: '#/components/schemas/CreateConsentRequest'
+        - type: object
+          required: [id, principalId, status, createdAt]
+          properties:
+            id: { type: string, format: uuid }
+            principalId: { type: string }
+            status: { type: string, enum: [ACTIVE, REVOKED, EXPIRED] }
+            createdAt: { type: string, format: date-time }
+            revokedAt: { type: string, format: date-time, nullable: true }
+    ConsentDecision:
+      type: object
+      required: [allowed, consentId]
+      properties:
+        allowed: { type: boolean }
+        consentId: { type: string, format: uuid }
+    Problem:
+      type: object
+      required: [type, title, status, detail, correlationId]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        correlationId: { type: string, format: uuid }
+  responses:
+    Problem:
+      description: Erro RFC 7807
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }

@@ -1,0 +1,113 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP request rate",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [{ "expr": "sum by (service) (rate(openinsure_http_server_requests_total[1m]))", "legendFormat": "{{service}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP p95 latency",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (service, le) (rate(openinsure_http_server_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Claims published from outbox (synthetic local)",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 8 },
+      "targets": [{ "expr": "sum(openinsure_outbox_published_total)" }]
+    },
+    {
+      "type": "stat",
+      "title": "Events processed (synthetic local)",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 8 },
+      "targets": [{ "expr": "sum(openinsure_worker_events_processed_total)" }]
+    },
+    {
+      "type": "stat",
+      "title": "Events in DLT (synthetic local)",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 8 },
+      "targets": [{ "expr": "sum(openinsure_worker_events_dlt_total)" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Kafka consumer lag (synthetic local)",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+      "targets": [{ "expr": "sum(openinsure_worker_consumer_lag)", "legendFormat": "claim-worker" }]
+    },
+    { "type": "row", "title": "Synthetic business flow", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 } },
+    {
+      "type": "stat",
+      "title": "Consents created",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 23 },
+      "targets": [{ "expr": "sum(openinsure_consents_total)" }]
+    },
+    {
+      "type": "stat",
+      "title": "Consents revoked",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 23 },
+      "targets": [{ "expr": "sum(openinsure_consents_revoked_total)" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Consent decisions",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 23 },
+      "targets": [{ "expr": "sum by (result) (rate(openinsure_consents_decisions_total[5m]))", "legendFormat": "{{result}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Synthetic policy access by product",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 28 },
+      "targets": [{ "expr": "sum by (product) (rate(openinsure_policies_accessed_total[5m]))", "legendFormat": "{{product}}" }]
+    },
+    {
+      "type": "stat",
+      "title": "Claims created",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 30 },
+      "targets": [{ "expr": "sum(openinsure_claims_total)" }]
+    },
+    {
+      "type": "stat",
+      "title": "Idempotent claim replays",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 30 },
+      "targets": [{ "expr": "sum(openinsure_claims_idempotent_replays_total)" }]
+    },
+    {
+      "type": "stat",
+      "title": "Notifications sent to SQS local",
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 35 },
+      "targets": [{ "expr": "sum(openinsure_notifications_sent_total)" }]
+    },
+    { "type": "row", "title": "Synthetic provider catalog", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 } },
+    {
+      "type": "timeseries",
+      "title": "Synthetic policies by provider",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 41 },
+      "targets": [{ "expr": "openinsure_provider_policies", "legendFormat": "{{provider}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Synthetic claims by provider",
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 41 },
+      "targets": [{ "expr": "openinsure_provider_claims", "legendFormat": "{{provider}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Provider events by institution",
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 41 },
+      "targets": [{ "expr": "openinsure_provider_events", "legendFormat": "{{provider}}" }]
+    }
+  ],
+  "schemaVersion": 39,
+  "title": "OpenInsure Overview",
+  "uid": "openinsure-overview",
+  "version": 1
+}

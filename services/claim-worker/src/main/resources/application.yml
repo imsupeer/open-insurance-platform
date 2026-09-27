@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: claim-worker
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/openinsure?currentSchema=claim_data}
+    username: ${SPRING_DATASOURCE_USERNAME:openinsure}
+    password: ${SPRING_DATASOURCE_PASSWORD:openinsure-local-only}
+  flyway:
+    locations: classpath:db/migration
+    schemas: claim_data
+    default-schema: claim_data
+    table: worker_flyway_schema_history
+    create-schemas: true
+    baseline-on-migrate: true
+    baseline-version: 0
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${CLAIM_WORKER_GROUP_ID:claim-worker-v1}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      properties:
+        isolation.level: read_committed
+  sql:
+    init:
+      mode: never
+app:
+  kafka:
+    claim-topic: ${CLAIM_EVENTS_TOPIC:claim-events}
+    notification-topic: ${CLAIM_NOTIFICATIONS_TOPIC:claim-notifications}
+    retry-attempts: ${CLAIM_RETRY_ATTEMPTS:3}
+worker:
+  fail-on-claim-id: ${WORKER_FAIL_ON_CLAIM_ID:}
+server:
+  port: ${SERVER_PORT:8080}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      service: ${spring.application.name}
+logging:
+  structured:
+    format:
+      console: ecs

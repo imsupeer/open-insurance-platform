@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: provider-service
+server:
+  port: \${SERVER_PORT:8084}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      service: \${spring.application.name}
+logging:
+  structured:
+    format:
+      console: ecs
+

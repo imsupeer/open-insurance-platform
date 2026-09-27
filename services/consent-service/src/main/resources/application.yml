@@ -1,0 +1,45 @@
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OAUTH2_ISSUER_URI:http://localhost:8090/realms/openinsure}
+          jwk-set-uri: ${OAUTH2_JWK_SET_URI:http://keycloak:8080/realms/openinsure/protocol/openid-connect/certs}
+  application:
+    name: consent-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/openinsure?currentSchema=consent_data}
+    username: ${SPRING_DATASOURCE_USERNAME:openinsure}
+    password: ${SPRING_DATASOURCE_PASSWORD:openinsure-local-only}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: consent_data
+  flyway:
+    locations: classpath:db/migration
+    schemas: consent_data
+    default-schema: consent_data
+    create-schemas: true
+server:
+  port: ${SERVER_PORT:8081}
+app:
+  security:
+    enabled: ${APP_SECURITY_ENABLED:true}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      service: ${spring.application.name}
+logging:
+  structured:
+    format:
+      console: ecs

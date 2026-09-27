@@ -1,0 +1,260 @@
+name: openinsure
+
+services:
+  postgres:
+    image: postgres:17.6
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-openinsure}
+      POSTGRES_USER: ${POSTGRES_USER:-openinsure}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openinsure-local-only}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  kafka:
+    image: apache/kafka:4.1.2
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:29093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    ports:
+      - "${KAFKA_PORT:-9092}:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.4
+    command: start-dev --http-port=8080 --http-enabled=true --health-enabled=true --import-realm --hostname-strict=false
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: openinsure-admin-local-only
+    volumes:
+      - ./infra/keycloak/openinsure-realm.json:/opt/keycloak/data/import/openinsure-realm.json:ro
+    ports:
+      - "${KEYCLOAK_PORT:-8090}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/9000'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  consent-service:
+    build:
+      context: .
+      args:
+        SERVICE_MODULE: consent-service
+    environment:
+      SERVER_PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/openinsure?currentSchema=consent_data
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-openinsure}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-openinsure-local-only}
+      APP_SECURITY_ENABLED: "true"
+      OAUTH2_ISSUER_URI: http://localhost:8090/realms/openinsure
+      OAUTH2_JWK_SET_URI: http://keycloak:8080/realms/openinsure/protocol/openid-connect/certs
+    ports:
+      - "${CONSENT_SERVICE_PORT:-8081}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck: &service-healthcheck
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  policy-service:
+    build:
+      context: .
+      args:
+        SERVICE_MODULE: policy-service
+    environment:
+      SERVER_PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/openinsure?currentSchema=policy_data
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-openinsure}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-openinsure-local-only}
+      CONSENT_SERVICE_URL: http://consent-service:8080
+      APP_SECURITY_ENABLED: "true"
+      OAUTH2_ISSUER_URI: http://localhost:8090/realms/openinsure
+      OAUTH2_JWK_SET_URI: http://keycloak:8080/realms/openinsure/protocol/openid-connect/certs
+    ports:
+      - "${POLICY_SERVICE_PORT:-8082}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      consent-service:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck: *service-healthcheck
+
+  claim-service:
+    build:
+      context: .
+      args:
+        SERVICE_MODULE: claim-service
+    environment:
+      SERVER_PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/openinsure?currentSchema=claim_data
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-openinsure}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-openinsure-local-only}
+      CONSENT_SERVICE_URL: http://consent-service:8080
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      APP_SECURITY_ENABLED: "true"
+      OAUTH2_ISSUER_URI: http://localhost:8090/realms/openinsure
+      OAUTH2_JWK_SET_URI: http://keycloak:8080/realms/openinsure/protocol/openid-connect/certs
+    ports:
+      - "${CLAIM_SERVICE_PORT:-8083}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      consent-service:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck: *service-healthcheck
+
+  claim-worker:
+    build:
+      context: .
+      args:
+        SERVICE_MODULE: claim-worker
+    environment:
+      SERVER_PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/openinsure?currentSchema=claim_data
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-openinsure}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-openinsure-local-only}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      CLAIM_WORKER_GROUP_ID: ${CLAIM_WORKER_GROUP_ID:-claim-worker-v1}
+      CLAIM_NOTIFICATIONS_TOPIC: ${CLAIM_NOTIFICATIONS_TOPIC:-claim-notifications}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      claim-service:
+        condition: service_healthy
+    healthcheck: *service-healthcheck
+
+  provider-service:
+    build:
+      context: .
+      args:
+        SERVICE_MODULE: provider-service
+    environment:
+      SERVER_PORT: 8080
+    ports:
+      - "${PROVIDER_SERVICE_PORT:-8084}:8080"
+    healthcheck: *service-healthcheck
+
+  localstack:
+    image: localstack/localstack:4.14.0
+    profiles: [aws-lab]
+    environment:
+      SERVICES: sqs
+      AWS_DEFAULT_REGION: us-east-1
+      DEBUG: "0"
+    ports:
+      - "${LOCALSTACK_PORT:-4566}:4566"
+    volumes:
+      - localstack-data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:4566/_localstack/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 15s
+
+  notification-service:
+    build:
+      context: .
+      args:
+        SERVICE_MODULE: notification-service
+    profiles: [aws-lab]
+    environment:
+      SERVER_PORT: 8080
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      APP_KAFKA_NOTIFICATION_TOPIC: ${CLAIM_NOTIFICATIONS_TOPIC:-claim-notifications}
+      AWS_ENDPOINT: http://localstack:4566
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local-only
+      NOTIFICATION_QUEUE_NAME: openinsure-claim-notifications.fifo
+    depends_on:
+      kafka:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    healthcheck: *service-healthcheck
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    profiles: [observability]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./infra/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    depends_on:
+      consent-service:
+        condition: service_healthy
+      policy-service:
+        condition: service_healthy
+      claim-service:
+        condition: service_healthy
+      claim-worker:
+        condition: service_healthy
+      provider-service:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    profiles: [observability]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    depends_on:
+      prometheus:
+        condition: service_started
+
+volumes:
+  postgres-data:
+  prometheus-data:
+  grafana-data:
+  localstack-data:

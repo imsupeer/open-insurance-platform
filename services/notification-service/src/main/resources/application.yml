@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: notification-service
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${NOTIFICATION_CONSUMER_GROUP_ID:notification-service-v1}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      properties:
+        isolation.level: read_committed
+app:
+  kafka:
+    notification-topic: ${APP_KAFKA_NOTIFICATION_TOPIC:claim-notifications}
+aws:
+  endpoint: ${AWS_ENDPOINT:http://localhost:4566}
+  region: ${AWS_REGION:us-east-1}
+  access-key-id: ${AWS_ACCESS_KEY_ID:local}
+  secret-access-key: ${AWS_SECRET_ACCESS_KEY:local-only}
+notification:
+  queue-name: ${NOTIFICATION_QUEUE_NAME:openinsure-claim-notifications.fifo}
+server:
+  port: ${SERVER_PORT:8080}
+management:
+  endpoints.web.exposure.include: health,info,prometheus
+  endpoint.health.probes.enabled: true
+logging.structured.format.console: ecs

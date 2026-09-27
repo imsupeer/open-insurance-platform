@@ -1,0 +1,63 @@
+openapi: 3.0.3
+info:
+  title: OpenInsure Policy API
+  version: 1.0.0
+  description: Consulta de apólices sintéticas sujeita a consentimento vigente.
+  license:
+    name: OpenInsure Lab synthetic license
+    url: https://openinsure.invalid/license
+servers:
+  - url: https://openinsure.invalid/policy
+security:
+  - oauth2: [policy:read]
+paths:
+  /policies/{policyId}:
+    get:
+      summary: Consulta uma apólice autorizada
+      operationId: getPolicy
+      parameters:
+        - { name: policyId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: X-Consent-Id, in: header, required: true, schema: { type: string, format: uuid } }
+        - { name: X-Scope, in: header, required: true, schema: { type: string, example: policy:read } }
+        - { name: X-Purpose, in: header, required: true, schema: { type: string, example: claim-assessment } }
+        - { $ref: '#/components/parameters/CorrelationId' }
+      responses:
+        '200': { description: Apólice, content: { application/json: { schema: { $ref: '#/components/schemas/Policy' } } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        password:
+          tokenUrl: http://localhost:8090/realms/openinsure/protocol/openid-connect/token
+          scopes:
+            policy:read: Consulta apólices
+            consent:read: Consulta consentimentos
+  parameters:
+    CorrelationId: { name: X-Correlation-Id, in: header, required: false, schema: { type: string, format: uuid } }
+  schemas:
+    Policy:
+      type: object
+      required: [id, policyNumber, ownerId, product, status]
+      properties:
+        id: { type: string, format: uuid }
+        policyNumber: { type: string, example: POL-SYN-001 }
+        ownerId: { type: string, example: customer-001 }
+        product: { type: string, example: auto }
+        status: { type: string, enum: [ACTIVE, CANCELLED] }
+    Problem:
+      type: object
+      required: [type, title, status, detail, correlationId]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        correlationId: { type: string, format: uuid }
+  responses:
+    Problem:
+      description: Erro RFC 7807
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }

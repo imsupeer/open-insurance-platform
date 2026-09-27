@@ -1,0 +1,90 @@
+openapi: 3.0.3
+info:
+  title: OpenInsure Claim API
+  version: 1.0.0
+  description: Abertura e consulta de sinistros sintéticos protegidas por JWT OIDC.
+  license:
+    name: OpenInsure Lab synthetic license
+    url: https://openinsure.invalid/license
+servers:
+  - url: https://openinsure.invalid/claim
+security:
+  - oauth2: [claim:read]
+paths:
+  /claims:
+    post:
+      summary: Abre um sinistro idempotentemente
+      operationId: createClaim
+      security:
+        - oauth2: [claim:write]
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 1 } }
+        - { name: X-Consent-Id, in: header, required: true, schema: { type: string, format: uuid } }
+        - { name: X-Scope, in: header, required: true, schema: { type: string, example: claim:write } }
+        - { name: X-Purpose, in: header, required: true, schema: { type: string, example: claim-assessment } }
+        - { $ref: '#/components/parameters/CorrelationId' }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateClaimRequest' } } }
+      responses:
+        '201': { description: Sinistro criado, content: { application/json: { schema: { $ref: '#/components/schemas/Claim' } } } }
+        '200': { description: Resposta idempotente, content: { application/json: { schema: { $ref: '#/components/schemas/Claim' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+  /claims/{claimId}:
+    get:
+      summary: Consulta um sinistro do principal
+      operationId: getClaim
+      parameters:
+        - { name: claimId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/CorrelationId' }
+      responses:
+        '200': { description: Sinistro, content: { application/json: { schema: { $ref: '#/components/schemas/Claim' } } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        password:
+          tokenUrl: http://localhost:8090/realms/openinsure/protocol/openid-connect/token
+          scopes:
+            claim:read: Consulta sinistros
+            claim:write: Abre sinistros
+            consent:read: Consulta consentimentos
+  parameters:
+    CorrelationId: { name: X-Correlation-Id, in: header, required: false, schema: { type: string, format: uuid } }
+  schemas:
+    CreateClaimRequest:
+      type: object
+      required: [policyId, description]
+      properties:
+        policyId: { type: string, format: uuid }
+        description: { type: string, minLength: 1, maxLength: 500 }
+    Claim:
+      allOf:
+        - $ref: '#/components/schemas/CreateClaimRequest'
+        - type: object
+          required: [id, principalId, status, createdAt]
+          properties:
+            id: { type: string, format: uuid }
+            principalId: { type: string }
+            status: { type: string, enum: [OPEN] }
+            createdAt: { type: string, format: date-time }
+    Problem:
+      type: object
+      required: [type, title, status, detail, correlationId]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        correlationId: { type: string, format: uuid }
+  responses:
+    Problem:
+      description: Erro RFC 7807
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
